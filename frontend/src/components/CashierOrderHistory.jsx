@@ -27,9 +27,24 @@ if (!window.printElement) {
 }
 
 const CashierOrderHistory = () => {
-  const [totalCount, setTotalCount] = useState(0); // ← New
-  const [totalPages, setTotalPages] = useState(0); // ← New
-  const ORDERS_PER_PAGE = 50; // ← Match backend default
+  const [orders, setOrders] = useState([]);
+  const [filters, setFilters] = useState({
+    startDate: "",
+    endDate: "",
+    status: "",
+    orderType: "",        // "table" or "takeaway"
+    deliveryType: ""
+  });
+  const [receiptOrder, setReceiptOrder] = useState(null);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
+  const [pdfProgress, setPdfProgress] = useState(0); 
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+  const [excelProgress, setExcelProgress] = useState(0);
+  const [loading, setLoading] = useState(false); 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0); 
+  const [totalPages, setTotalPages] = useState(0); 
+  const ORDERS_PER_PAGE = 50; 
 
   useEffect(() => {
     fetchOrders(1);

@@ -46,14 +46,15 @@ const DailyReport = () => {
           headers: { Authorization: `Bearer ${token}` },
           params: { startDate, endDate }
         }),
-        axios.get("https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/orders", {
+        axios.get("https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/orders?limit=1000", {
           headers: { Authorization: `Bearer ${token}` },
           params: { startDate, endDate }
         })
       ]);
 
       setSummary(summaryRes.data);
-      setOrders(ordersRes.data);
+      const ordersArray = ordersRes.data.orders || ordersRes.data;
+      setOrders(ordersArray);
     } catch (err) {
       console.error("Failed to load report:", err.message);
       alert("Failed to load report data");

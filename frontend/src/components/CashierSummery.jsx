@@ -67,11 +67,12 @@ const CashierSummary = () => {
       });
 
       const res = await axios.get(
-        `https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/orders?${params.toString()}`,
+        `https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/orders?${params.toString()}&limit=500`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      const cashOrders = res.data.filter(
+      const ordersArray = res.data.orders || res.data;
+      const cashOrders = ordersArray.filter(
         (order) => (order.payment?.cash || 0) - (order.payment?.changeDue || 0) > 0
       );
       setOrders(cashOrders);

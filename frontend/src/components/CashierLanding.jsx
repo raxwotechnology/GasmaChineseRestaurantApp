@@ -286,11 +286,11 @@ const CashierLanding = () => {
   const fetchOrdersAndComputePopularity = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get("https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/orders", {
+      const res = await axios.get("https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/orders?limit=500", {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      const orders = res.data; // assume this is an array of orders
+      const orders = res.data.orders || res.data; 
 
       // Count occurrences of each menu item name
       const popularityMap = {};

@@ -20,8 +20,10 @@ const TakeawayOrdersPage = () => {
   const UserId = localStorage.getItem("userId");
   const UserRole = localStorage.getItem("userRole");
 
+  const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const ORDERS_PER_PAGE = 15; // adjustable
 
   // Load orders
   useEffect(() => {
