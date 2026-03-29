@@ -7,27 +7,39 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 const CustomerList = () => {
-  const [customers, setCustomers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const CUSTOMERS_PER_PAGE = 50;
 
   useEffect(() => {
-    fetchCustomers();
+    fetchCustomers(1);
   }, []);
 
-  const fetchCustomers = async () => {
+  const fetchCustomers = async (page = 1) => {
+    setLoading(true);
+    setCurrentPage(page);
     try {
       const token = localStorage.getItem("token");
       const res = await axios.get(
-        "https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/customers-list",
+        `https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/customers-list?page=${page}&limit=${CUSTOMERS_PER_PAGE}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      setCustomers(res.data);
+      // res.data is { customers, totalCount, totalPages, currentPage }
+      setCustomers(res.data.customers || []);
+      setTotalCount(res.data.totalCount || 0);
+      setTotalPages(res.data.totalPages || 0);
       setLoading(false);
     } catch (err) {
       console.error("Failed to load customers:", err);
       toast.error("Failed to load customer list");
       setLoading(false);
     }
+  };
+
+  const paginate = (pageNumber) => {
+    fetchCustomers(pageNumber);
+    window.scrollTo(0, 0);
   };
 
   // Export to Excel
@@ -84,7 +96,7 @@ const CustomerList = () => {
       {/* Actions */}
       <div className="mb-4 d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
         <div>
-          <h5 className="mb-0">Total Customers: {customers.length}</h5>
+          <h5 className="mb-0">Total Customers: {totalCount}</h5>
         </div>
         <div className="d-flex gap-2">
           <button className="btn btn-outline-success" onClick={exportToExcel}>
@@ -114,13 +126,43 @@ const CustomerList = () => {
             <tbody>
               {customers.map((cust, idx) => (
                 <tr key={cust.phone || idx}>
-                  <td>{idx + 1}</td>
+                  <td>{(currentPage - 1) * CUSTOMERS_PER_PAGE + idx + 1}</td>
                   <td className="fw-semibold">{cust.name || "—"} </td>
                   <td>{cust.phone}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="d-flex justify-content-between align-items-center p-3 border-top">
+              <p className="text-muted small mb-0">
+                Page {currentPage} of {totalPages}
+              </p>
+              <nav>
+                <ul className="pagination pagination-sm mb-0">
+                  <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                    <button className="page-link" onClick={() => paginate(currentPage - 1)}>Prev</button>
+                  </li>
+                  {[...Array(totalPages)].map((_, i) => {
+                    const pageNum = i + 1;
+                    if (pageNum === 1 || pageNum === totalPages || (pageNum >= currentPage - 2 && pageNum <= currentPage + 2)) {
+                      return (
+                        <li key={pageNum} className={`page-item ${currentPage === pageNum ? 'active' : ''}`}>
+                          <button className="page-link" onClick={() => paginate(pageNum)}>{pageNum}</button>
+                        </li>
+                      );
+                    }
+                    return null;
+                  })}
+                  <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                    <button className="page-link" onClick={() => paginate(currentPage + 1)}>Next</button>
+                  </li>
+                </ul>
+              </nav>
+            </div>
+          )}
         </div>
       )}
 

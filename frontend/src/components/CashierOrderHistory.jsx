@@ -27,46 +27,35 @@ if (!window.printElement) {
 }
 
 const CashierOrderHistory = () => {
-  const [orders, setOrders] = useState([]);
-  const [filters, setFilters] = useState({
-    startDate: "",
-    endDate: "",
-    status: "",
-    orderType: "",        // "table" or "takeaway"
-    deliveryType: ""
-  });
-  const [receiptOrder, setReceiptOrder] = useState(null);
-  const [isExportingPDF, setIsExportingPDF] = useState(false);
-  const [pdfProgress, setPdfProgress] = useState(0); // 0 to 100
-  const [isExportingExcel, setIsExportingExcel] = useState(false);
-  const [excelProgress, setExcelProgress] = useState(0);
-  const [loading, setLoading] = useState(false); // ← New
-  const [currentPage, setCurrentPage] = useState(1); // ← New
-  const ORDERS_PER_PAGE = 20; // ← Configurable
+  const [totalCount, setTotalCount] = useState(0); // ← New
+  const [totalPages, setTotalPages] = useState(0); // ← New
+  const ORDERS_PER_PAGE = 50; // ← Match backend default
 
   useEffect(() => {
-    fetchOrders();
+    fetchOrders(1);
   }, [filters]);
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (page = 1) => {
     setLoading(true);
+    setCurrentPage(page);
     const token = localStorage.getItem("token");
 
     // Get start and end of selected date
-    const start = new Date(filters.startDate);
-    const end = new Date(filters.endDate);
+    const start = filters.startDate ? new Date(filters.startDate) : null;
+    const end = filters.endDate ? new Date(filters.endDate) : null;
 
-    // Set time to start & end of day
-    start.setHours(0, 0, 0, 0);     // 00:00:00
-    end.setHours(23, 59, 59, 999); // 23:59:59
+    if (start) start.setHours(0, 0, 0, 0);
+    if (end) end.setHours(23, 59, 59, 999);
 
     const params = new URLSearchParams();
 
-    if (filters.startDate) params.append("startDate", start);
-    if (filters.endDate) params.append("endDate", end);
+    if (start) params.append("startDate", start.toISOString());
+    if (end) params.append("endDate", end.toISOString());
     if (filters.status) params.append("status", filters.status);
     if (filters.orderType) params.append("orderType", filters.orderType);
     if (filters.deliveryType) params.append("deliveryType", filters.deliveryType);
+    params.append("page", page);
+    params.append("limit", ORDERS_PER_PAGE);
 
     try {
       const res = await axios.get(
@@ -75,7 +64,10 @@ const CashierOrderHistory = () => {
           headers: { Authorization: `Bearer ${token}` }
         }
       );
-      setOrders(res.data);
+      // res.data is now { orders, totalCount, totalPages, currentPage }
+      setOrders(res.data.orders);
+      setTotalCount(res.data.totalCount || 0);
+      setTotalPages(res.data.totalPages || 0);
     } catch (err) {
       console.error("Failed to load orders:", err.response?.data || err.message);
       alert("Failed to load order history");
@@ -85,81 +77,39 @@ const CashierOrderHistory = () => {
   };
 
   const exportToExcel = async () => {
-    if (orders.length === 0) {
-      alert("No orders to export.");
-      return;
-    }
-
     setIsExportingExcel(true);
-    setExcelProgress(0);
+    setExcelProgress(20);
 
-    const formatDate = (dateStr) => {
-      if (!dateStr) return "N/A";
-      const d = new Date(dateStr);
-      return isNaN(d.getTime()) ? "Invalid Date" : d.toLocaleString();
-    };
+    const token = localStorage.getItem("token");
+    const start = filters.startDate ? new Date(filters.startDate) : null;
+    const end = filters.endDate ? new Date(filters.endDate) : null;
+    if (start) start.setHours(0, 0, 0, 0);
+    if (end) end.setHours(23, 59, 59, 999);
+
+    const params = new URLSearchParams();
+    if (start) params.append("startDate", start.toISOString());
+    if (end) params.append("endDate", end.toISOString());
+    if (filters.status) params.append("status", filters.status);
+    if (filters.orderType) params.append("orderType", filters.orderType);
+    if (filters.deliveryType) params.append("deliveryType", filters.deliveryType);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      setExcelProgress(20);
-
-      const symbol = localStorage.getItem("currencySymbol") || "$";
-      const total = orders.length;
-      const worksheetData = [];
-
-      for (let i = 0; i < orders.length; i++) {
-        const order = orders[i];
-
-        // ✅ 1. Format items as "Item xQty, ..."
-        const itemsText = order.items
-          ?.map(item => `${item.name} x${item.quantity}`)
-          .join(", ") || "—";
-
-        // ✅ 2. Format Table / Takeaway column exactly as requested
-        let tableTakeawayText;
-        if (order.tableNo > 0) {
-          tableTakeawayText = `Table ${order.tableNo}`;
-        } else {
-          if (order.deliveryType === "Customer Pickup") {
-            tableTakeawayText = `Takeaway - ${order.deliveryType}`;
-          } else {
-            tableTakeawayText = `Takeaway - ${order.deliveryPlaceName || order.deliveryType || "—"}`;
-          }
+      setExcelProgress(50);
+      const res = await axios.get(
+        `https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/orders/export/excel?${params.toString()}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: 'blob'
         }
-
-        worksheetData.push({
-          Date: formatDate(order.createdAt),
-          Customer: order.customerName || "—",
-          "Table / Takeaway": tableTakeawayText, // Updated column name for clarity
-          Status: order.status || "—",
-          Items: itemsText,
-          Total: order.totalPrice ? `${symbol}${order.totalPrice.toFixed(2)}` : "—"
-        });
-
-        if (i % 100 === 0 || i === orders.length - 1) {
-          const progress = Math.min(90, Math.round(((i + 1) / total) * 100));
-          setExcelProgress(progress);
-        }
-      }
-
-      setExcelProgress(95);
-
-      const XLSX = await import("xlsx");
-      const ws = XLSX.utils.json_to_sheet(worksheetData);
-      const range = XLSX.utils.decode_range(ws['!ref'] || "A1");
-      const colWidths = [];
-      for (let C = range.s.c; C <= range.e.c; ++C) {
-        const col = XLSX.utils.encode_col(C);
-        const maxWidth = worksheetData.reduce((w, row) => {
-          const cell = row[Object.keys(row)[C]] || "";
-          return Math.max(w, (cell?.toString()?.length || 10));
-        }, 10);
-        colWidths.push({ wch: Math.min(maxWidth + 2, 50) }); // cap at 50 chars
-      }
-      ws['!cols'] = colWidths;
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Orders");
-      XLSX.writeFile(wb, "cashier_orders.xlsx");
+      );
+      
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'orders_history.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
 
       setExcelProgress(100);
     } catch (err) {
@@ -561,13 +511,10 @@ const CashierOrderHistory = () => {
     setFilters((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Pagination logic
-  const indexOfLastOrder = currentPage * ORDERS_PER_PAGE;
-  const indexOfFirstOrder = indexOfLastOrder - ORDERS_PER_PAGE;
-  const currentOrders = orders.slice(indexOfFirstOrder, indexOfLastOrder);
-  const totalPages = Math.ceil(orders.length / ORDERS_PER_PAGE);
-
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+  const paginate = (pageNumber) => {
+    fetchOrders(pageNumber);
+    window.scrollTo(0, 0);
+  };
 
   return (
     // <div className="mobile-scroll-container container-fluid px-3">
@@ -705,7 +652,7 @@ const CashierOrderHistory = () => {
                 </tr>
               </thead>
               <tbody>
-                {currentOrders.map((order) => (
+                {orders.map((order) => (
                   <tr key={order._id}>
                     <td>{new Date(order.createdAt).toLocaleString()}</td>
                     <td>{order.customerName}</td>
@@ -776,57 +723,63 @@ const CashierOrderHistory = () => {
           </div>
 
           {/* Pagination Controls */}
+          {/* Pagination Controls */}
           {totalPages > 1 && (
-            <nav className="mt-3">
-              <ul className="pagination justify-content-center">
-                <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
-                  <button
-                    className="page-link"
-                    onClick={() => paginate(currentPage - 1)}
-                    disabled={currentPage === 1}
-                  >
-                    &laquo; Prev
-                  </button>
-                </li>
+            <div className="d-flex justify-content-between align-items-center mt-3">
+              <p className="text-muted small mb-0">
+                Showing page {currentPage} of {totalPages} ({totalCount} total orders)
+              </p>
+              <nav>
+                <ul className="pagination justify-content-center mb-0">
+                  <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+                    <button
+                      className="page-link"
+                      onClick={() => paginate(currentPage - 1)}
+                      disabled={currentPage === 1}
+                    >
+                      &laquo; Prev
+                    </button>
+                  </li>
 
-                {[...Array(totalPages)].map((_, i) => {
-                  const pageNum = i + 1;
-                  if (
-                    pageNum === 1 ||
-                    pageNum === totalPages ||
-                    (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
-                  ) {
-                    return (
-                      <li key={pageNum} className={`page-item ${currentPage === pageNum ? "active" : ""}`}>
-                        <button className="page-link" onClick={() => paginate(pageNum)}>
-                          {pageNum}
-                        </button>
-                      </li>
-                    );
-                  } else if (
-                    (pageNum === currentPage - 2 && currentPage > 3) ||
-                    (pageNum === currentPage + 2 && currentPage < totalPages - 2)
-                  ) {
-                    return (
-                      <li key={pageNum} className="page-item disabled">
-                        <span className="page-link">...</span>
-                      </li>
-                    );
-                  }
-                  return null;
-                })}
+                  {[...Array(totalPages)].map((_, i) => {
+                    const pageNum = i + 1;
+                    if (
+                      pageNum === 1 ||
+                      pageNum === totalPages ||
+                      (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+                    ) {
+                      return (
+                        <li key={pageNum} className={`page-item ${currentPage === pageNum ? "active" : ""}`}>
+                          <button className="page-link" onClick={() => paginate(pageNum)}>
+                            {pageNum}
+                          </button>
+                        </li>
+                      );
+                    } else if (
+                      (pageNum === currentPage - 2 && currentPage > 3) ||
+                      (pageNum === currentPage + 2 && currentPage < totalPages - 2)
+                    ) {
+                      return (
+                        <li key={pageNum} className="page-item disabled">
+                          <span className="page-link">...</span>
+                        </li>
+                      );
+                    }
+                    return null;
+                  })}
 
-                <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
-                  <button
-                    className="page-link"
-                    onClick={() => paginate(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                  >
-                    Next &raquo;
-                  </button>
-                </li>
-              </ul>
-            </nav>
+                  <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
+                    <button
+                      className="page-link"
+                      onClick={() => paginate(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next &raquo;
+                    </button>
+                  </li>
+                </ul>
+              </nav>
+            </div>
           )}
         </>
       )}

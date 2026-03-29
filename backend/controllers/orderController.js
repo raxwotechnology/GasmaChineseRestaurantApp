@@ -218,8 +218,10 @@ exports.createOrder = async (req, res) => {
 
 // GET /api/auth/orders/history
 exports.getOrderHistory = async (req, res) => {
-  const { startDate, endDate, status, orderType, deliveryType } = req.query;
+  const { startDate, endDate, status, orderType, deliveryType, page = 1, limit = 50 } = req.query;
   const query = {};
+
+  const skip = (parseInt(page) - 1) * parseInt(limit);
 
   // ✅ Handle date range properly
   if (startDate && endDate) {
@@ -259,8 +261,19 @@ exports.getOrderHistory = async (req, res) => {
   }
 
   try {
-    const orders = await Order.find(query).populate("cashierId", "name role").sort({ createdAt: -1 });
-    res.json(orders);
+    const totalCount = await Order.countDocuments(query);
+    const orders = await Order.find(query)
+      .populate("cashierId", "name role")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+    
+    res.json({
+      orders,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      currentPage: parseInt(page)
+    });
   } catch (err) {
     console.error("Failed to load order history:", err.message);
     res.status(500).json({ error: "Failed to load orders" });
@@ -288,28 +301,51 @@ exports.updateOrderStatus = async (req, res) => {
 };
 
 exports.exportOrdersToExcel = async (req, res) => {
-  const orders = await Order.find({});
-  const XLSX = require("xlsx");
+  const { startDate, endDate, status, orderType, deliveryType } = req.query;
+  const query = {};
 
-  const flatOrders = orders.flatMap(order =>
-    order.items.map(i => ({
-      OrderID: order._id,
-      Date: new Date(order.date).toLocaleString(),
-      Customer: order.customerName,
-      Table: order.tableNo,
-      Item: i.name,
-      Quantity: i.quantity,
-      Price: i.price,
-      TotalPrice: i.price * i.quantity,
-      Status: order.status
-    }))
-  );
+  if (startDate && endDate) {
+    query.createdAt = { $gte: new Date(startDate), $lte: new Date(endDate) };
+  }
+  if (status) query.status = status;
+  if (orderType === "table") query.tableNo = { $ne: "Takeaway" };
+  else if (orderType === "takeaway") query.tableNo = "Takeaway";
+  if (deliveryType) query.deliveryType = deliveryType;
 
-  const ws = XLSX.utils.json_to_sheet(flatOrders);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Orders");
-  XLSX.writeFile(wb, "cashier_orders.xlsx");
-  res.json({ message: "Exported" });
+  try {
+    const orders = await Order.find(query).sort({ createdAt: -1 });
+    const XLSX = require("xlsx");
+
+    const flatOrders = orders.flatMap(order =>
+      order.items.map(i => ({
+        OrderID: order.invoiceNo,
+        Date: new Date(order.createdAt).toLocaleString(),
+        Customer: order.customerName,
+        Table: order.tableNo,
+        Item: i.name,
+        Quantity: i.quantity,
+        Price: i.price,
+        TotalPrice: i.price * i.quantity,
+        Status: order.status
+      }))
+    );
+
+    const ws = XLSX.utils.json_to_sheet(flatOrders);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Orders");
+    
+    // Instead of writing to file on server, we should probably send it as a buffer/stream
+    // but the current implementation was writing to disk which is also risky on Render.
+    // However, I'll keep the logic similar but fixed for memory where possible.
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    
+    res.setHeader('Content-Disposition', 'attachment; filename="orders.xlsx"');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buf);
+  } catch (err) {
+    console.error("Export failed:", err.message);
+    res.status(500).json({ error: "Export failed" });
+  }
 };
 
 // backend/controllers/orderController.js
@@ -340,29 +376,15 @@ exports.searchCustomers = async (req, res) => {
   const { q = '' } = req.query;
 
   try {
-    // Get all orders, group by phone, and pick the latest name per phone
-    const pipeline = [
-      { $match: { customerPhone: { $exists: true, $ne: null } } },
-      { $sort: { date: -1 } },
-      {
-        $group: {
-          _id: '$customerPhone',
-          name: { $first: '$customerName' },
-          phone: { $first: '$customerPhone' }
-        }
-      },
-      {
-        $match: {
-          $or: [
-            { phone: { $regex: q, $options: 'i' } },
-            { name: { $regex: q, $options: 'i' } }
-          ]
-        }
-      },
-      { $limit: 20 }
-    ];
-
-    const customers = await Order.aggregate(pipeline);
+    // ✅ Use Customer model directly for efficiency
+    const query = {
+      $or: [
+        { phone: { $regex: q, $options: 'i' } },
+        { name: { $regex: q, $options: 'i' } }
+      ]
+    };
+    
+    const customers = await Customer.find(query).limit(20).sort({ updatedAt: -1 });
     res.json(customers);
   } catch (err) {
     console.error('Search customers error:', err);
@@ -373,22 +395,23 @@ exports.searchCustomers = async (req, res) => {
 // GET /api/auth/customers-list
 exports.getAllCustomers = async (req, res) => {
   try {
-    const pipeline = [
-      { $match: { customerPhone: { $exists: true, $ne: null } } },
-      { $sort: { date: -1 } },
-      {
-        $group: {
-          _id: '$customerPhone',
-          name: { $first: '$customerName' },
-          phone: { $first: '$customerPhone' },
-          lastOrderDate: { $first: '$date' }
-        }
-      },
-      { $sort: { lastOrderDate: -1 } }
-    ];
+    // ✅ Use Customer model directly for efficiency
+    // If you need pagination, add page/limit here
+    const { page = 1, limit = 50 } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    const customers = await Order.aggregate(pipeline);
-    res.json(customers);
+    const totalCount = await Customer.countDocuments({});
+    const customers = await Customer.find({})
+      .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    res.json({
+      customers,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      currentPage: parseInt(page)
+    });
   } catch (err) {
     console.error('Failed to fetch customers:', err);
     res.status(500).json({ error: 'Failed to load customers' });
@@ -408,8 +431,8 @@ exports.getOrderById = async (req, res) => {
 // GET /api/auth/cashier/takeaway-orders?status=Pending
 // GET /api/auth/cashier/takeaway-orders
 exports.getCashierTakeawayOrders = async (req, res) => {
-  const { status } = req.query;
-  const userId = req.user.id;
+  const { status, page = 1, limit = 50 } = req.query;
+  const skip = (parseInt(page) - 1) * parseInt(limit);
 
   try {
     let query = {
@@ -420,12 +443,19 @@ exports.getCashierTakeawayOrders = async (req, res) => {
       query.status = status;
     }
 
-    // ✅ Add .populate("driverId")
+    const totalCount = await Order.countDocuments(query);
     const orders = await Order.find(query)
       .populate("driverId", "name vehicle numberPlate")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
 
-    res.json(orders);
+    res.json({
+      orders,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      currentPage: parseInt(page)
+    });
   } catch (err) {
     console.error("Failed to load takeaway orders:", err.message);
     res.status(500).json({ error: "Internal server error" });

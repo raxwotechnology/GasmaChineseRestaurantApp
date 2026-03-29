@@ -20,24 +20,23 @@ const TakeawayOrdersPage = () => {
   const UserId = localStorage.getItem("userId");
   const UserRole = localStorage.getItem("userRole");
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const ORDERS_PER_PAGE = 15; // adjustable
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
   // Load orders
   useEffect(() => {
-    fetchOrders();
-    const interval = setInterval(fetchOrders, 30000); // Auto-refresh every 30s
+    fetchOrders(1);
+    const interval = setInterval(() => fetchOrders(currentPage), 30000); // Auto-refresh current page
     return () => clearInterval(interval);
   }, [filterStatus]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [filterStatus]);
-
-  const fetchOrders = async () => {
+  const fetchOrders = async (page = 1) => {
     try {
       const token = localStorage.getItem("token");
-      const params = {};
+      const params = {
+        page,
+        limit: ORDERS_PER_PAGE
+      };
       if (filterStatus) params.status = filterStatus;
 
       const res = await axios.get("https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/cashier/takeaway-orders", {
@@ -45,7 +44,11 @@ const TakeawayOrdersPage = () => {
         params
       });
 
-      setOrders(res.data);
+      // res.data is { orders, totalCount, totalPages, currentPage }
+      setOrders(res.data.orders);
+      setTotalCount(res.data.totalCount || 0);
+      setTotalPages(res.data.totalPages || 0);
+      setCurrentPage(res.data.currentPage || 1);
       setLoading(false);
     } catch (err) {
       console.error("Failed to load takeaway orders:", err.message);
@@ -142,15 +145,9 @@ const TakeawayOrdersPage = () => {
 
   const symbol = localStorage.getItem("currencySymbol") || "$";
 
-  // Pagination
-  const indexOfLastOrder = currentPage * ORDERS_PER_PAGE;
-  const indexOfFirstOrder = indexOfLastOrder - ORDERS_PER_PAGE;
-  const currentOrders = orders.slice(indexOfFirstOrder, indexOfLastOrder);
-  const totalPages = Math.ceil(orders.length / ORDERS_PER_PAGE);
-
   const paginate = (pageNumber) => {
-    setCurrentPage(pageNumber);
-    window.scrollTo({ top: 0, behavior: 'smooth' }); // Optional: scroll to top
+    fetchOrders(pageNumber);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -206,7 +203,7 @@ const TakeawayOrdersPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {currentOrders.map((order) => {
+                {orders.map((order) => {
                   const canEdit =
                     order.deliveryType === "Delivery Service"
                       ? ["Driver Pending", "Driver On the Way"].includes(order.deliveryStatus)
@@ -278,59 +275,64 @@ const TakeawayOrdersPage = () => {
           </div>
 
           {totalPages > 1 && (
-            <nav className="mt-4">
-              <ul className="pagination justify-content-center">
-                <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
-                  <button
-                    className="page-link"
-                    onClick={() => paginate(currentPage - 1)}
-                    disabled={currentPage === 1}
-                  >
-                    &laquo; Prev
-                  </button>
-                </li>
+            <div className="d-flex justify-content-between align-items-center mt-4">
+              <p className="text-muted small mb-0">
+                Showing page {currentPage} of {totalPages} ({totalCount} total orders)
+              </p>
+              <nav>
+                <ul className="pagination justify-content-center mb-0">
+                  <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+                    <button
+                      className="page-link"
+                      onClick={() => paginate(currentPage - 1)}
+                      disabled={currentPage === 1}
+                    >
+                      &laquo; Prev
+                    </button>
+                  </li>
 
-                {[...Array(totalPages)].map((_, i) => {
-                  const pageNum = i + 1;
-                  if (
-                    pageNum === 1 ||
-                    pageNum === totalPages ||
-                    (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
-                  ) {
-                    return (
-                      <li
-                        key={pageNum}
-                        className={`page-item ${currentPage === pageNum ? "active" : ""}`}
-                      >
-                        <button className="page-link" onClick={() => paginate(pageNum)}>
-                          {pageNum}
-                        </button>
-                      </li>
-                    );
-                  } else if (
-                    (pageNum === currentPage - 2 && currentPage > 3) ||
-                    (pageNum === currentPage + 2 && currentPage < totalPages - 2)
-                  ) {
-                    return (
-                      <li key={pageNum} className="page-item disabled">
-                        <span className="page-link">...</span>
-                      </li>
-                    );
-                  }
-                  return null;
-                })}
+                  {[...Array(totalPages)].map((_, i) => {
+                    const pageNum = i + 1;
+                    if (
+                      pageNum === 1 ||
+                      pageNum === totalPages ||
+                      (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+                    ) {
+                      return (
+                        <li
+                          key={pageNum}
+                          className={`page-item ${currentPage === pageNum ? "active" : ""}`}
+                        >
+                          <button className="page-link" onClick={() => paginate(pageNum)}>
+                            {pageNum}
+                          </button>
+                        </li>
+                      );
+                    } else if (
+                      (pageNum === currentPage - 2 && currentPage > 3) ||
+                      (pageNum === currentPage + 2 && currentPage < totalPages - 2)
+                    ) {
+                      return (
+                        <li key={pageNum} className="page-item disabled">
+                          <span className="page-link">...</span>
+                        </li>
+                      );
+                    }
+                    return null;
+                  })}
 
-                <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
-                  <button
-                    className="page-link"
-                    onClick={() => paginate(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                  >
-                    Next &raquo;
-                  </button>
-                </li>
-              </ul>
-            </nav>
+                  <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
+                    <button
+                      className="page-link"
+                      onClick={() => paginate(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next &raquo;
+                    </button>
+                  </li>
+                </ul>
+              </nav>
+            </div>
           )}
         </>
       )}
