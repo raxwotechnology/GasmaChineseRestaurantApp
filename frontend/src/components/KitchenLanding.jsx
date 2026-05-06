@@ -37,7 +37,7 @@ const KitchenLanding = () => {
     if (initial) setLoading(true);
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get("https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/orders?limit=200", { // Large limit for ALL live orders
+      const res = await axios.get("https://gasmachineserestaurantapp.onrender.com/api/auth/orders?limit=200", { // Large limit for ALL live orders
         headers: { Authorization: `Bearer ${token}` },
       });
       // Handle both cases (plain array or paginated object)
@@ -67,13 +67,13 @@ const KitchenLanding = () => {
     const token = localStorage.getItem("token");
     try {
       await axios.put(
-        `https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/order/${id}/status`,
+        `https://gasmachineserestaurantapp.onrender.com/api/auth/order/${id}/status`,
         { status: "Ready" },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       await axios.post(
-        "https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/notifications/send",
+        "https://gasmachineserestaurantapp.onrender.com/api/auth/notifications/send",
         {
           userId: id,
           message: `Order #${id} is ready for pickup.`,
@@ -105,13 +105,13 @@ const KitchenLanding = () => {
     const updatePromises = liveOrderIds.map(async (id) => {
       try {
         await axios.put(
-          `https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/order/${id}/status`,
+          `https://gasmachineserestaurantapp.onrender.com/api/auth/order/${id}/status`,
           { status: "Ready" },
           { headers: { Authorization: `Bearer ${token}` } }
         );
 
         await axios.post(
-          "https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/notifications/send",
+          "https://gasmachineserestaurantapp.onrender.com/api/auth/notifications/send",
           {
             userId: id,
             message: `Order #${id} is ready for pickup.`,

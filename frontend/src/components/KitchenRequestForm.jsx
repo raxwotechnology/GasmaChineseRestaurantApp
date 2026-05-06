@@ -18,7 +18,7 @@ const KitchenRequestForm = () => {
       try {
         const token = localStorage.getItem("token");
         const res = await axios.get(
-          "https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/kitchen/my-requests",
+          "https://gasmachineserestaurantapp.onrender.com/api/auth/kitchen/my-requests",
           {
             headers: { Authorization: `Bearer ${token}` }
           }
@@ -48,7 +48,7 @@ const KitchenRequestForm = () => {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.post(
-        "https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/kitchen/request",
+        "https://gasmachineserestaurantapp.onrender.com/api/auth/kitchen/request",
         formData,
         {
           headers: { Authorization: `Bearer ${token}` }

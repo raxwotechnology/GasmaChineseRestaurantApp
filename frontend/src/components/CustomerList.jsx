@@ -24,7 +24,7 @@ const CustomerList = () => {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.get(
-        `https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/customers-list?page=${page}&limit=${CUSTOMERS_PER_PAGE}`,
+        `https://gasmachineserestaurantapp.onrender.com/api/auth/customers-list?page=${page}&limit=${CUSTOMERS_PER_PAGE}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       // res.data is { customers, totalCount, totalPages, currentPage }
@@ -135,7 +135,7 @@ const CustomerList = () => {
               ))}
             </tbody>
           </table>
-          
+
           {/* Pagination Controls */}
           {totalPages > 1 && (
             <div className="d-flex justify-content-between align-items-center p-3 border-top">

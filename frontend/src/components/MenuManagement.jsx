@@ -43,7 +43,7 @@ const MenuManagement = () => {
   const fetchMenus = async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get("https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/menus", {
+      const res = await axios.get("https://gasmachineserestaurantapp.onrender.com/api/auth/menus", {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -142,7 +142,7 @@ const MenuManagement = () => {
 
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.post("https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/menu", formData, {
+      const res = await axios.post("https://gasmachineserestaurantapp.onrender.com/api/auth/menu", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
           Authorization: `Bearer ${token}`
@@ -212,7 +212,7 @@ const MenuManagement = () => {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.put(
-        `https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/menu/${editingMenu}`,
+        `https://gasmachineserestaurantapp.onrender.com/api/auth/menu/${editingMenu}`,
         formData,
         {
           headers: {
@@ -240,7 +240,7 @@ const MenuManagement = () => {
 
     try {
       const token = localStorage.getItem("token");
-      await axios.delete(`https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/menu/${id}`, {
+      await axios.delete(`https://gasmachineserestaurantapp.onrender.com/api/auth/menu/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -277,7 +277,7 @@ const MenuManagement = () => {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.put(
-        `https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/menu/${restockMenu._id}`,
+        `https://gasmachineserestaurantapp.onrender.com/api/auth/menu/${restockMenu._id}`,
         {
           minimumQty: updatedAvailableQty,
           currentQty: updatedCurrentQty
@@ -305,7 +305,7 @@ const MenuManagement = () => {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.post(
-        "https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/menu/restock-all",
+        "https://gasmachineserestaurantapp.onrender.com/api/auth/menu/restock-all",
         { amount: bulkRestockAmount },
         {
           headers: { Authorization: `Bearer ${token}` }
@@ -798,7 +798,7 @@ const MenuManagement = () => {
                   // src={
                   //   menu.imageUrl.startsWith("https")
                   //     ? menu.imageUrl
-                  //     : `https://gasmachineserestaurantapp-7aq4.onrender.com${menu.imageUrl}`
+                  //     : `https://gasmachineserestaurantapp.onrender.com${menu.imageUrl}`
                   // }
                   src={
                     menu.imageUrl.startsWith("https")

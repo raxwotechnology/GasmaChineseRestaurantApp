@@ -37,14 +37,14 @@ const CashierOrderHistory = () => {
   });
   const [receiptOrder, setReceiptOrder] = useState(null);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
-  const [pdfProgress, setPdfProgress] = useState(0); 
+  const [pdfProgress, setPdfProgress] = useState(0);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [excelProgress, setExcelProgress] = useState(0);
-  const [loading, setLoading] = useState(false); 
+  const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalCount, setTotalCount] = useState(0); 
-  const [totalPages, setTotalPages] = useState(0); 
-  const ORDERS_PER_PAGE = 50; 
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const ORDERS_PER_PAGE = 50;
 
   useEffect(() => {
     fetchOrders(1);
@@ -74,7 +74,7 @@ const CashierOrderHistory = () => {
 
     try {
       const res = await axios.get(
-        `https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/orders?${params.toString()}`,
+        `https://gasmachineserestaurantapp.onrender.com/api/auth/orders?${params.toString()}`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -111,13 +111,13 @@ const CashierOrderHistory = () => {
     try {
       setExcelProgress(50);
       const res = await axios.get(
-        `https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/orders/export/excel?${params.toString()}`,
+        `https://gasmachineserestaurantapp.onrender.com/api/auth/orders/export/excel?${params.toString()}`,
         {
           headers: { Authorization: `Bearer ${token}` },
           responseType: 'blob'
         }
       );
-      
+
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -459,7 +459,7 @@ const CashierOrderHistory = () => {
     try {
       const token = localStorage.getItem("token");
       await axios.delete(
-        `https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/order/${orderId}`,
+        `https://gasmachineserestaurantapp.onrender.com/api/auth/order/${orderId}`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }
@@ -483,7 +483,7 @@ const CashierOrderHistory = () => {
 
       // Update order status to "Ready"
       await axios.put(
-        `https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/order/${orderId}/status`,
+        `https://gasmachineserestaurantapp.onrender.com/api/auth/order/${orderId}/status`,
         { status: "Ready" },
         {
           headers: { Authorization: `Bearer ${token}` }
@@ -494,7 +494,7 @@ const CashierOrderHistory = () => {
       // You can skip if not needed for cashier
       /*
       await axios.post(
-        "https://gasmachineserestaurantapp-7aq4.onrender.com/api/auth/notifications/send",
+        "https://gasmachineserestaurantapp.onrender.com/api/auth/notifications/send",
         {
           userId: orderId,
           message: `Order #${orderId} is ready.`,
